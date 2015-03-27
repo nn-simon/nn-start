@@ -1,0 +1,4 @@
+git remote add xxx git@github.com:nn-simon/nn-start.git
+git add xxx
+git commit -m "msg"
+git push xxx master
