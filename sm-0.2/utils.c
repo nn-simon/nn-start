@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 void pr_array(FILE *f, void *array, int numcase, int lencase, char flag)
 {
@@ -29,22 +31,34 @@ void pr_array(FILE *f, void *array, int numcase, int lencase, char flag)
 	}
 }
 
-void get_data(const char *name,  void *data, int len)
+void get_data(const char *name, void *data, size_t need_read)
 {
-	FILE *fp = fopen(name, "rb");
-	if (fp == NULL) {
+	int fd = open(name, O_RDONLY);
+	
+	if (fd == -1) {
 		fprintf(stderr, "can't open %s!\n", name);
 		exit(0); // not good
 	}
-	if (fread(data, 1, len, fp) != len) {
-		fprintf(stderr, "Read %s error!\n", name);
-		fclose(fp);
-		exit(0); // not good
+	size_t len = need_read;
+	while (len > 0) {
+		ssize_t nread = read(fd, data, len);
+		if (nread == -1) {
+			fprintf(stderr, "Read %s error, need read %ld, actually read %ld!\n", name, need_read, need_read - len);
+			close(fd);
+			exit(0); // not good
+		}
+		if (nread == 0) {
+			fprintf(stderr, "short of %ld bytes\n", len);
+			close(fd);
+			exit(0);
+		}
+		len -= nread;
+		data = (char *)data + nread; 
 	}
-	fclose(fp);
+	close(fd);
 }
 
-void out_data(const char *name,  void *data, int len)
+void out_data(const char *name, void *data, int len)
 {
 	FILE *fp = fopen(name, "wb");
 	if (fp == NULL) {
@@ -102,6 +116,6 @@ void reorder(void *data, size_t size, const int *order, int numcase, int lencase
 	for (nc = 0; nc < numcase; nc++) {
 		if (nc == order[nc]) // when nc == order[nc], all values in array data will be 0.
 			continue;
-		_reorder((char*)data + nc * casesize, (char*)data + order[nc] * casesize, casesize);
+		_reorder((char*)data + (size_t)nc * casesize, (char*)data + (size_t)order[nc] * casesize, casesize);
 	}
 }

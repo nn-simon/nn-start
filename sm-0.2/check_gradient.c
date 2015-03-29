@@ -61,7 +61,7 @@ static double sm_cost(sm_info_t *sm, sm_w_t *gradw, const int *V, const double *
 	return cost;
 }
 
-void check_graident(sm_info_t *sm, const int *V, const double *H, int numcase)
+void check_gradient(sm_info_t *sm, const int *V, const double *H, int numcase)
 {
 	sm_w_t dw1, dw2, dw3;
 	_pr_sm_info(sm, "dw1");

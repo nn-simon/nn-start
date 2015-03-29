@@ -174,14 +174,14 @@ static void parse_command_line(int argc, char *argv[], train_info_t *train, sm_i
 	_pr_data_info(data, "train data info");
 	_pr_classify(clssfy, "clssfy");
 
-	data->data = (uint8_t *) malloc((long)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
+	data->data = (uint8_t *) malloc((size_t)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
 	data->labels = (int *) malloc(data->numcase * sizeof(int));
 	if (!(data->data && data->labels)) {
 		fprintf(stderr, "malloc error!\n");
 		exit(0);
 	}
 	get_data(n_ltr, data->labels, data->numcase * sizeof(int));
-	get_data(n_dtr, data->data, (long)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
+	get_data(n_dtr, data->data, (size_t)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
 
 	train->mix = (double *) malloc(train->nummix * data->numchannel * sizeof(double));
 	if (!train->mix) {
@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
 {
 	train_info_t train;
 	sm_info_t sm;
-	data_info_t data; //dtr: datatrain, dtt: datatest
+	data_info_t data;
 	classify_t clssfy;
 	char out[MAX_BUF];
 	parse_command_line(argc, argv, &train, &sm, &data, &clssfy, out);
@@ -245,10 +245,12 @@ int main(int argc, char *argv[])
 		//_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
 		//classify_get_hid(sm.w, sm.bh, V, H, sm.numvis, sm.numhid, sm.numclass, train_numcase, &clssfy);
 		sm_hid(&sm, V, H, train_numcase, init);
-		_pr_sm_info(&sm, "2, sm info");
-		check_graident(&sm, V, H, train_numcase);
-		fprintf(stdout, "return !\n\n");
-		return;
+		{ // for check gradient
+		//_pr_sm_info(&sm, "2, sm info");
+		//check_graident(&sm, V, H, train_numcase);
+		//fprintf(stdout, "return !\n\n");
+		//return;
+		}
 		int xx, yy;
 		for (xx = 0; xx < 1; xx++) {
 			for (yy=0; yy < sm.numhid; yy++)

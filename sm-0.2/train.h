@@ -1,8 +1,9 @@
 #ifndef __TRAIN_H
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 
-void get_data(const char *name,  void *data, int len);
+void get_data(const char *name,  void *data, size_t len);
 void out_data(const char *name,  void *data, int len);
 void pr_array(FILE *f, void *array, int numcase, int lencase, char flag);
 void randperm(int *, int);

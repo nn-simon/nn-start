@@ -42,7 +42,7 @@ double sm_train(sm_info_t *sm, const int *V, const double *H, int numcase, int b
 	fprintf(stdout, "+ vis:%d hid:%d bsize:%d class[%d]:%d learn rate: %lf +\n", 
 		sm->numvis, sm->numhid, batchsize, tpr, sm->numclass[tpr], sm->learnrate);
 	//for softmax_cost
-	double *data = (double *)malloc(batchsize * sm->len_v2h_max * sizeof(double));
+	double *data = (double *)malloc(batchsize * (sm->len_v2h_max + 1) * sizeof(double));
 	double *mem = (double *)malloc(batchsize * sm->class_max * sizeof(double));
 	int *label = (int *)malloc(batchsize * sizeof(double));
 	if (!(data && mem && label)) {

@@ -142,11 +142,12 @@ void construct_sm(sm_info_t *sm, char *argv)
 	char file_bm_pos[SM_MAX_BUF];
 	char file_class[SM_MAX_BUF];
 
-	sscanf(argv, "%d %d %s %s %s %s %s", &sm->numvis, &sm->numhid,
+	sscanf(argv, "%d %d %lf %s %s %s %s %s", &sm->numvis, &sm->numhid, &sm->learnrate,
 		file_pos, file_bm_pos, file_w, file_class, file_v2h);
 	fprintf(stdout, "print in fun construct_sm:\n"
 			"\tvisXhid:%dx%d\n"
-			"\tpos|bm_pos|w|class|v2h:%s|%s|%s|%s|%s\n", sm->numvis, sm->numhid,
+			"\tlearnrate:%lf\n"
+			"\tpos|bm_pos|w|class|v2h:%s|%s|%s|%s|%s\n", sm->numvis, sm->numhid, sm->learnrate,
 			file_pos, file_bm_pos, file_w, file_class, file_v2h);
 
 	sm->numclass = (int *)malloc(sm->numvis * sizeof(int));
@@ -167,7 +168,7 @@ void construct_sm(sm_info_t *sm, char *argv)
 
 	//numclass
 	get_data(file_class, sm->numclass, sm->numvis * sizeof(int));
-	pr_array(stdout, sm->numclass, 1, sm->numvis, 'i');
+	//pr_array(stdout, sm->numclass, 1, sm->numvis, 'i');
 	//position
 	get_data(file_pos, sm->position, sm->numvis * sizeof(int));
 	//bm_pos
