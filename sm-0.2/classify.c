@@ -34,7 +34,7 @@ void prediction(classify_t *clssfy)
 	//we must be careful, because the last point of any sample is always 1. rsm need it. We need exclude it.
 	nag_dgemm(Nag_RowMajor, Nag_NoTrans, Nag_NoTrans,
 		clssfy->numcase, clssfy->numclass, clssfy->lencase,
-		1.0, clssfy->data, clssfy->lencase + 1, clssfy->w, clssfy->numclass,
+		1.0, clssfy->data, clssfy->lencase, clssfy->w, clssfy->numclass,
 		0.0, val, clssfy->numclass, &fail);
 	if (fail.code != NE_NOERROR) {
 		fprintf(stderr, "Error from dgemm!\n%s\n", fail.message);

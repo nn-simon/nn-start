@@ -12,6 +12,7 @@
 #include "train.h"
 #include "sm.h"
 #include "classify.h"
+#include "sm_hid.h"
 
 #define MAX_BUF 128
 
@@ -208,6 +209,7 @@ int main(int argc, char *argv[])
 	data_info_t data;
 	classify_t clssfy;
 	char out[MAX_BUF];
+	hid_nag_ip_t ip;
 	parse_command_line(argc, argv, &train, &sm, &data, &clssfy, out);
 
 	int train_numcase = train.mininumcase * train.nummix;
@@ -230,7 +232,7 @@ int main(int argc, char *argv[])
 	long minibatchlength = (long)train.mininumcase * data.channelcase * data.numchannel;
 	double cost;
 
-	init_hid_nag_ip_struct(clssfy.lencase, clssfy.numclass - 1);
+	init_hid_nag_ip_struct(&ip, clssfy.lencase, 0);
 	for (iter = 0; iter < train.iteration; iter++) {
 		if (curbatch >= totalbatch)
 			curbatch = 0;
@@ -244,7 +246,7 @@ int main(int argc, char *argv[])
 		data2V(V, sm.numclass, unlbl, train.mininumcase, data.channelcase, data.numchannel, sm.position, sm.numvis, train.mix, train.nummix);
 		//_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
 		//classify_get_hid(sm.w, sm.bh, V, H, sm.numvis, sm.numhid, sm.numclass, train_numcase, &clssfy);
-		sm_hid(&sm, V, H, train_numcase, init);
+		sm_hid_nag(&sm, &ip, V, H, train_numcase, init);
 		{ // for check gradient
 		//_pr_sm_info(&sm, "2, sm info");
 		//check_graident(&sm, V, H, train_numcase);
@@ -257,16 +259,18 @@ int main(int argc, char *argv[])
 				fprintf(stdout, "%d", (int)(H[xx * sm.numhid + yy]));
 			fprintf(stdout, "\n");
 		}
-		randperm(order, train_numcase);
-		reorder(V, sizeof(int), order, train_numcase, sm.numvis);
-		reorder(H, sizeof(double), order, train_numcase, sm.numhid);
+		if (train.nummix > 1) {
+			randperm(order, train_numcase);
+			reorder(V, sizeof(int), order, train_numcase, sm.numvis);
+			reorder(H, sizeof(double), order, train_numcase, sm.numhid);
+		}
 		cost = sm_train(&sm, V, H, train_numcase, train.batchsize);
 
 		curbatch++;
 	}
 
 	out_w(out, &sm);
-	free_hid_nag_ip_struct();
+	free_hid_nag_ip_struct(&ip);
 	_free_mem(&train, &sm, &data, &clssfy);
 	
 	free(init);
