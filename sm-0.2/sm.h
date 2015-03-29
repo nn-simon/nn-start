@@ -38,5 +38,5 @@ void smhid(const double *w, const double *bh, const int *V, double *H, int numvi
 void classify_get_hid(const double *w, const double *bh, const int *V, double *H, int numvis, int numhid, const int *numclass, int numcase, void *reserved);
 void init_hid_nag_ip_struct(int num_var, int num_cons);
 void free_hid_nag_ip_struct();
-
+void check_graident(sm_info_t *sm, const int *V, const double *H, int numcase);
 #endif

@@ -45,7 +45,31 @@ static void data2V(int *V, const int *numclass, const uint8_t *data, int numcase
 
 static void _pr_sm_info(sm_info_t *sm, char *msg)
 {
-	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n", msg, sm->numvis, sm->numhid);
+	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n"
+			"\tlearnrate:%lf\n"
+			"\tlen_v2h_maxXclass_max:%dx%d\n", 
+			msg, sm->numvis, sm->numhid, sm->learnrate, sm->len_v2h_max, sm->class_max);
+}
+
+static void _pr_vh_info(sm_info_t *sm)
+{
+	int nv, nh, nl;
+	for (nv = 0; nv < sm->numvis; nv++) {
+		fprintf(stdout, "v.%d:(%d)", nv, sm->len_v2h[nv]);
+		for (nl = 0; nl < sm->len_v2h[nv]; nl++)
+			fprintf(stdout, "%d ", sm->v2h[nv][nl]);
+		fprintf(stdout, "\n");
+	}
+	for (nh = 0; nh < sm->numhid; nh++) {
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->h2v[nh][nl]);
+		fprintf(stdout, "\n");
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->pos_h2v[nh][nl]);
+		fprintf(stdout, "\n");
+	}
 }
 
 static void _pr_train_info(train_info_t *train, char *msg)
@@ -97,7 +121,7 @@ static void parse_command_line(int argc, char *argv[], train_info_t *train, sm_i
 	char n_clssfy[MAX_BUF];
 
 	char ch;
-	while((ch = getopt(argc, argv, "c:n:s:o:t:T:")) != -1) {
+	while((ch = getopt(argc, argv, "c:n:s:o:t:")) != -1) {
 		switch(ch) {
 		case 'c':
 			_char_replace(optarg, ',', ' ');
@@ -206,8 +230,7 @@ int main(int argc, char *argv[])
 	long minibatchlength = (long)train.mininumcase * data.channelcase * data.numchannel;
 	double cost;
 
-	//init_hid_nag_ip_struct(clssfy.lencase, clssfy.numclass - 1);
-
+	init_hid_nag_ip_struct(clssfy.lencase, clssfy.numclass - 1);
 	for (iter = 0; iter < train.iteration; iter++) {
 		if (curbatch >= totalbatch)
 			curbatch = 0;
@@ -222,6 +245,10 @@ int main(int argc, char *argv[])
 		//_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
 		//classify_get_hid(sm.w, sm.bh, V, H, sm.numvis, sm.numhid, sm.numclass, train_numcase, &clssfy);
 		sm_hid(&sm, V, H, train_numcase, init);
+		_pr_sm_info(&sm, "2, sm info");
+		check_graident(&sm, V, H, train_numcase);
+		fprintf(stdout, "return !\n\n");
+		return;
 		int xx, yy;
 		for (xx = 0; xx < 1; xx++) {
 			for (yy=0; yy < sm.numhid; yy++)
@@ -238,6 +265,7 @@ int main(int argc, char *argv[])
 
 	out_w(out, &sm);
 	free_hid_nag_ip_struct();
+	_free_mem(&train, &sm, &data, &clssfy);
 	
 	free(init);
 	free(V);

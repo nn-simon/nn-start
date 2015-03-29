@@ -10,9 +10,14 @@ static void _get_x(double *x0, const double *A, const double *c, int dim, void *
 	double *x1 = (double *)mem;
 	double curvalue = 0.0;
 	double lastvalue = 1.0;
-	int row, col;
-
-	while (fabs(curvalue - lastvalue) > 0.001) {
+	int row, col, cnt = 0;
+/*	fprintf(stdout, "A:\n");
+	pr_array(stdout, A, dim, dim, 'd');
+	fprintf(stdout, "c:\n");
+	pr_array(stdout, c, 1, dim, 'd');
+	fprintf(stdout, "x0:\n");
+	pr_array(stdout, x0, 1, dim, 'd');
+*/	while (fabs(curvalue - lastvalue) > 0.001) {
 		//xAy^T + cx^T, known y
 		memcpy(x1, c, dim * sizeof(double));
 		for (col = 0; col < dim; col++) {
@@ -21,12 +26,15 @@ static void _get_x(double *x0, const double *A, const double *c, int dim, void *
 			for (row = 0; row < dim; row++)
 				x1[row] += A[row * dim + col];
 		}
+		lastvalue = curvalue;
 		curvalue = 0.0;
 		for (row = 0; row < dim; row++) {
 			x0[row] = x1[row] > 0.0 ? 1.0 : 0.0;
 			curvalue += x0[row] * x1[row];
 		}
-		//yAx^T + cx^T, known y
+/*		fprintf(stdout, "0:");
+		pr_array(stdout, x0, 1, dim, 'd');
+*/		//yAx^T + cx^T, known y
 		memcpy(x1, c, dim * sizeof(double));
 		for (row = 0; row < dim; row++) {
 			if (x0[row] < 0.5) //x0[col] == 0.0
@@ -34,12 +42,13 @@ static void _get_x(double *x0, const double *A, const double *c, int dim, void *
 			for (col = 0; col < dim; col++)
 				x1[col] += A[row * dim + col];
 		}
-		lastvalue = 0.0;
 		for (row = 0; row < dim; row++) {
 			x0[row] = x1[row] > 0.0 ? 1.0 : 0.0;
-			lastvalue += x0[row] * x1[row];
 		}
-	}
+/*		fprintf(stdout, "0:");
+		pr_array(stdout, x0, 1, dim, 'd');
+		fprintf(stdout, "cnt:%d %lf %lf\n", cnt++, curvalue, lastvalue);
+*/	}
 }
 
 void sm_hid(sm_info_t *sm, const int *V, double *H, int numcase, void *reserved)

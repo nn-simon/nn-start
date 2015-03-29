@@ -5,7 +5,7 @@
 
 double hv_grad(const sm_info_t *sm, sm_w_t *gradw, const int *V, const double *H, int numcase)
 {
-	int nc, nl, nh, nv;
+	int nc, nl, nh;
 	double cost = 0.0;
 
 	for (nc = 0; nc < numcase; nc++) {
@@ -31,7 +31,7 @@ double hv_grad(const sm_info_t *sm, sm_w_t *gradw, const int *V, const double *H
 			//p(h_j|h_{-j}, V)
 			p = 1.0 / (1.0 + exp(-p));
 			// grad: softmax part
-			for (nv = 0; nv < sm->numvis; nv++) {
+			for (nl = 0; nl < sm->len_h2v[nh]; nl++) {
 				int id_v = sm->h2v[nh][nl];
 				gradw->w[id_v][vecV[id_v] * (sm->len_v2h[id_v] + 1) + sm->pos_h2v[nh][nl]] += (vecH[nh] - p) / numcase;
 			}

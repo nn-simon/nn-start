@@ -13,7 +13,6 @@ static int _cmp_int(const void *a, const void *b)
 
 static void _get_v2h(sm_info_t *sm, char *file_v2h)
 {
-	//????? v2h must be in order. small -> big
 	FILE *fp = fopen(file_v2h, "r");
 	if (fp == NULL) {
 		fprintf(stderr, "can't open %s\n", file_v2h);
@@ -73,11 +72,11 @@ static void _get_h2v(sm_info_t *sm)
 	memset(sm->len_h2v, 0, sm->numhid * sizeof(int));
 	for (nv = 0; nv < sm->numvis; nv++) {
 		for (nl = 0; nl < sm->len_v2h[nv]; nl++)
-			sm->len_h2v[sm->v2h[nv][nl]]++;	
+			sm->len_h2v[sm->v2h[nv][nl]]++;
 	}
 	for (nh = 0; nh < sm->numhid; nh++) {
-		sm->h2v[nh] = (int *)malloc(sm->numhid * sizeof(int));
-		sm->pos_h2v[nh] = (int *)malloc(sm->numhid * sizeof(int));
+		sm->h2v[nh] = (int *)malloc(sm->len_h2v[nh] * sizeof(int));
+		sm->pos_h2v[nh] = (int *)malloc(sm->len_h2v[nh] * sizeof(int));
 		if (!(sm->h2v[nh] && sm->pos_h2v[nh])) {
 			fprintf(stderr, "malloc err in _get_h2v\n");
 			exit(0);
@@ -87,12 +86,24 @@ static void _get_h2v(sm_info_t *sm)
 	for (nv = 0; nv < sm->numvis; nv++) {
 		for (nl = 0; nl < sm->len_v2h[nv]; nl++) {
 			int id_h = sm->v2h[nv][nl];
-			int count = sm->len_h2v[nh];
+			int count = sm->len_h2v[id_h];
 			sm->h2v[id_h][count] = nv;
 			sm->pos_h2v[id_h][count] = nl;
 			sm->len_h2v[id_h]++;
 		}
 	}
+/*
+	for (nh = 0; nh < sm->numhid; nh++) {
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->h2v[nh][nl]);
+		fprintf(stdout, "\n");
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->pos_h2v[nh][nl]);
+		fprintf(stdout, "\n");
+	}
+// */
 }
 
 void construct_sm_w(sm_info_t *sm, sm_w_t *w)
@@ -133,6 +144,10 @@ void construct_sm(sm_info_t *sm, char *argv)
 
 	sscanf(argv, "%d %d %s %s %s %s %s", &sm->numvis, &sm->numhid,
 		file_pos, file_bm_pos, file_w, file_class, file_v2h);
+	fprintf(stdout, "print in fun construct_sm:\n"
+			"\tvisXhid:%dx%d\n"
+			"\tpos|bm_pos|w|class|v2h:%s|%s|%s|%s|%s\n", sm->numvis, sm->numhid,
+			file_pos, file_bm_pos, file_w, file_class, file_v2h);
 
 	sm->numclass = (int *)malloc(sm->numvis * sizeof(int));
 	sm->position = (int *)malloc(sm->numvis * sizeof(int));
@@ -152,10 +167,11 @@ void construct_sm(sm_info_t *sm, char *argv)
 
 	//numclass
 	get_data(file_class, sm->numclass, sm->numvis * sizeof(int));
+	pr_array(stdout, sm->numclass, 1, sm->numvis, 'i');
 	//position
 	get_data(file_pos, sm->position, sm->numvis * sizeof(int));
 	//bm_pos
-	get_data(file_bm_pos, sm->bm_pos, sm->numvis * sm->numvis * sizeof(uint8_t));
+	get_data(file_bm_pos, sm->bm_pos, sm->numhid * sm->numhid * sizeof(uint8_t));
 	int nv, nh, nl;
 	sm->class_max = 0;
 	for (nv = 0; nv < sm->numvis; nv++)
