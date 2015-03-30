@@ -12,7 +12,8 @@ void clssfy_build(classify_t *clssfy)
 	clssfy->mem = malloc(clssfy->numcase * clssfy->numclass * sizeof(double));
 	clssfy->labels = malloc(clssfy->numcase * sizeof(int));
 	clssfy->pred = malloc(clssfy->numcase * sizeof(int));
-	if (!(clssfy->mem && clssfy->labels && clssfy->pred)) {
+	clssfy->w = malloc(clssfy->lencase * clssfy->numclass * sizeof(double));
+	if (!(clssfy->mem && clssfy->labels && clssfy->pred && clssfy->w)) {
 		fprintf(stderr, "malloc err in classfy_build\n");
 		exit(0);
 	}
@@ -23,6 +24,7 @@ void clssfy_clear(classify_t *clssfy)
 	free(clssfy->mem);
 	free(clssfy->labels);
 	free(clssfy->pred);
+	free(clssfy->w);
 }
 
 void prediction(classify_t *clssfy)
@@ -31,7 +33,6 @@ void prediction(classify_t *clssfy)
 	double max;
 	NagError fail;
 	INIT_FAIL(fail);
-	//we must be careful, because the last point of any sample is always 1. rsm need it. We need exclude it.
 	nag_dgemm(Nag_RowMajor, Nag_NoTrans, Nag_NoTrans,
 		clssfy->numcase, clssfy->numclass, clssfy->lencase,
 		1.0, clssfy->data, clssfy->lencase, clssfy->w, clssfy->numclass,

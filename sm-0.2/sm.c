@@ -132,6 +132,7 @@ void destroy_sm_w(sm_info_t *sm, sm_w_t *w)
 		free(w->w[nv]);
 	free(w->w);
 	free(w->bh);
+	free(w->bm_w);
 }
 
 void construct_sm(sm_info_t *sm, char *argv)
@@ -185,7 +186,7 @@ void construct_sm(sm_info_t *sm, char *argv)
 	_get_w(sm, file_w);
 	_get_h2v(sm);
 	for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
-		sm->w->bm_w[nl] = sm->w->bm_w[nl] * sm->bm_pos[nl];
+		sm->w->bm_w[nl] *= sm->bm_pos[nl];
 }
 
 void destroy_sm(sm_info_t *sm)

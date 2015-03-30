@@ -119,3 +119,4 @@ void reorder(void *data, size_t size, const int *order, int numcase, int lencase
 		_reorder((char*)data + (size_t)nc * casesize, (char*)data + (size_t)order[nc] * casesize, casesize);
 	}
 }
+

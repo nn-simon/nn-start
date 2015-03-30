@@ -11,11 +11,6 @@
 
 void init_hid_nag_ip_struct(hid_nag_ip_t *ip, int num_var, int num_cons)
 {
-	ip = (hid_nag_ip_t*) malloc(sizeof(hid_nag_ip_t));
-	if (ip == NULL) {
-		fprintf(stderr,"malloc in init_hid_nag_ip_struct!\n");
-		exit(0);
-	}
 	ip->num_variables = num_var;
 	ip->num_constraints = num_cons;
 	ip->bl = (double*) malloc(sizeof(double) * (num_var + num_cons));
@@ -55,7 +50,7 @@ void free_hid_nag_ip_struct(hid_nag_ip_t *ip)
 	free(ip->intvar);
 	free(ip->all_real);
 	free(ip->h);
-	free(ip);
+	free(ip->x0);
 }
 
 static void _construct_h(double *h, const double *bm_w, const uint8_t *bm_pos, int dim)
@@ -65,7 +60,7 @@ static void _construct_h(double *h, const double *bm_w, const uint8_t *bm_pos, i
 		h[row * dim + row] = 0.0;
 	}
 	for (row = 0; row < dim; row++) {
-		for (col = row + 1; col < dim; dim++) {
+		for (col = row + 1; col < dim; col++) {
 			h[row * dim + col] = (bm_w[row * dim + col] * bm_pos[row * dim + col] + bm_w[row + col * dim] * bm_pos[row + col * dim]) / 2.0;
 			h[row + col * dim] = h[row * dim + col];
 		}
@@ -80,6 +75,7 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 	for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
 		ip->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
 	for (nc = 0; nc < numcase; nc++) {
+		//printf("nc %d in sm_hid_nag\n", nc);
 		const int *vecV = V + nc * sm->numvis;
 		double *vecH = H + nc * sm->numhid;
 		memcpy(ip->c, sm->w->bh, sm->numhid * sizeof(double));
@@ -94,7 +90,7 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 		nag_ip_init(&ip->options);
 		ip->options.prob = Nag_MIQP2;
 		ip->options.branch_dir = Nag_Branch_InitX;
-		ip->options.print_level = Nag_Soln;
+		ip->options.print_level = Nag_NoPrint;
 		strncpy(ip->options.outfile, "ip_out", 80);// 80 is the length of options.outfile 
 
 		nag_ip_bb(ip->num_variables, ip->num_constraints, ip->a, ip->num_variables, ip->bl, ip->bu, ip->all_real,
@@ -109,7 +105,9 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 			printf("Error from nag_ip_free (h02xzc).\n%s\n", ip->fail.message);
 			exit(0);
 		}
-
+		for (nh < 0; nh < sm->numhid; nh++)
+			vecH[nh] = vecH[nh] > 0.5 ? 1.0 : 0.0;
+/*
 		nag_ip_init(&ip->options);
 		ip->options.prob = Nag_MIQP2;
 		ip->options.branch_dir = Nag_Branch_InitX;
@@ -128,6 +126,7 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 			printf("Error from nag_ip_free (h02xzc).\n%s\n", ip->fail.message);
 			exit(0);
 		}
+*/
 	}
 }
 
@@ -163,7 +162,7 @@ static void _hid_correction(const sm_info_t *sm, const classify_t *clssfy, const
 	nag_ip_init(&ip->options);
 	ip->options.prob = Nag_MIQP2;
 	ip->options.branch_dir = Nag_Branch_InitX;
-	ip->options.print_level = Nag_Soln;
+	ip->options.print_level = Nag_NoPrint;
 	strncpy(ip->options.outfile, "ip_out", 80);// 80 is the length of options.outfile 
 
 	nag_ip_bb(ip->num_variables, ip->num_constraints, ip->a, ip->num_variables, ip->bl, ip->bu, ip->intvar,

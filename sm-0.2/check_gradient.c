@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sm.h"
+#include "train.h"
 
 static void _get_data_from_H(double *data, const double *H, int *v2h, int len_v2h, int lencase, int numcase)
 {

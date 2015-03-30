@@ -20,6 +20,7 @@ typedef struct {
 	Nag_H02_Opt options;
 	NagError fail;
 } hid_nag_ip_t;
+
 void init_hid_nag_ip_struct(hid_nag_ip_t *ip, int num_var, int num_cons);
 void free_hid_nag_ip_struct(hid_nag_ip_t *ip);
 void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, hid_nag_ip_t *ip_constraints, const int *V, double *H, int numcase, void *reserved);
