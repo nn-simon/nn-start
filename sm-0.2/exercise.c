@@ -13,6 +13,7 @@
 #include "sm.h"
 #include "classify.h"
 #include "sm_hid.h"
+#include "random.h"
 
 #define MAX_BUF 128
 
@@ -47,9 +48,9 @@ static void data2V(int *V, const int *numclass, const uint8_t *data, int numcase
 static void _pr_sm_info(sm_info_t *sm, char *msg)
 {
 	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n"
-			"\tlearnrate:%lf\n"
+			"\tlambda:%lf\n"
 			"\tlen_v2h_maxXclass_max:%dx%d\n", 
-			msg, sm->numvis, sm->numhid, sm->learnrate, sm->len_v2h_max, sm->class_max);
+			msg, sm->numvis, sm->numhid, sm->lambda, sm->len_v2h_max, sm->class_max);
 }
 
 static void _pr_vh_info(sm_info_t *sm)
@@ -75,11 +76,13 @@ static void _pr_vh_info(sm_info_t *sm)
 
 static void _pr_train_info(train_info_t *train, char *msg)
 {
-	fprintf(stdout, "%s:\n\titeration:%d\n"
+	fprintf(stdout, "%s:\n\tnumsample:%d\n"
+			"\titeration:%d\n"
 			"\tmininumcase:%d\n"
 			"\tbatchsize:%d\n"
-			"\tnummix:%d\n",
-			msg, train->iteration, train->mininumcase, train->batchsize, train->nummix);
+			"\tnummix:%d\n"
+			"\tlearnrate:%lf\n",
+			msg, train->numsample, train->iteration, train->mininumcase, train->batchsize, train->nummix, train->learnrate);
 }
 
 static void _pr_data_info(data_info_t *data, char *msg)
@@ -150,9 +153,9 @@ static void parse_command_line(int argc, char *argv[], train_info_t *train, sm_i
 			break; 
 		case 'n':
 			_char_replace(optarg, ',', ' ');
-			sscanf(optarg, "%d %d %d %d %s", 
-				&train->iteration, &train->batchsize, &train->mininumcase, &train->nummix, n_mix);
-			printf("[n]%s:%dx%dx%dx%d,%s[%ld]\n", optarg, train->iteration, train->batchsize, train->mininumcase, train->nummix, n_mix, strlen(n_mix));
+			sscanf(optarg, "%d %d %d %d %d %lf %s", 
+				&train->numsample, &train->iteration, &train->batchsize, &train->mininumcase, &train->nummix, &train->learnrate, n_mix);
+			printf("[n]%s:%dx%dx%dx%d,%lf,%s[%ld]\n", optarg, train->iteration, train->batchsize, train->mininumcase, train->nummix, train->learnrate, n_mix, strlen(n_mix));
 			break;
 		case 's':
 			_char_replace(optarg, ',', ' ');
@@ -240,6 +243,7 @@ int main(int argc, char *argv[])
 
 	hid_nag_ip_t ip;
 	init_hid_nag_ip_struct(&ip, clssfy.lencase, 0);
+	open_random();
 	for (iter = 0; iter < train.iteration; iter++) {
 		if (curbatch >= totalbatch)
 			curbatch = 0;
@@ -253,7 +257,10 @@ int main(int argc, char *argv[])
 		data2V(V, sm.numclass, unlbl, train.mininumcase, data.channelcase, data.numchannel, sm.position, sm.numvis, train.mix, train.nummix);
 		//_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
 		//classify_get_hid(sm.w, sm.bh, V, H, sm.numvis, sm.numhid, sm.numclass, train_numcase, &clssfy);
-		sm_hid_nag(&sm, &ip, V, H, train_numcase, init);
+		//sm_hid_nag(&sm, &ip, V, H, train_numcase, init);
+		double *bh = init; // in sm_hid_random, there is no need to initilize h.
+		sm_hid_random(&sm, V, H, train_numcase, train.numsample, bh);
+		//sm_hid_sa(&sm, V, H, train_numcase, train.numsample, bh);
 /*		{ // for check gradient
 		_pr_sm_info(&sm, "2, sm info");
 		check_gradient(&sm, V, H, train_numcase);
@@ -261,7 +268,7 @@ int main(int argc, char *argv[])
 		return;
 		}
 */		int xx, yy;
-		for (xx = 0; xx < 1; xx++) {
+		for (xx = 0; xx < 2; xx++) {
 			for (yy=0; yy < sm.numhid; yy++)
 				fprintf(stdout, "%d", (int)(H[xx * sm.numhid + yy]));
 			fprintf(stdout, "\n");
@@ -271,11 +278,11 @@ int main(int argc, char *argv[])
 			reorder(V, sizeof(int), order, train_numcase, sm.numvis);
 			reorder(H, sizeof(double), order, train_numcase, sm.numhid);
 		}
-		cost = sm_train(&sm, V, H, train_numcase, train.batchsize);
+		cost = sm_train(&sm, train.learnrate, V, H, train_numcase, train.batchsize);
 
 		curbatch++;
 	}
-
+	close_random();
 	out_w(out, &sm);
 	free_hid_nag_ip_struct(&ip);
 	_free_mem(&train, &sm, &data, &clssfy);

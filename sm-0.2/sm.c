@@ -137,18 +137,21 @@ void destroy_sm_w(sm_info_t *sm, sm_w_t *w)
 
 void construct_sm(sm_info_t *sm, char *argv)
 {
+	char network_type[2][SM_MAX_BUF] = {{"restricted softmax netowrk"}, {"softmax network"}};
 	char file_w[SM_MAX_BUF];
 	char file_v2h[SM_MAX_BUF];
 	char file_pos[SM_MAX_BUF];
 	char file_bm_pos[SM_MAX_BUF];
 	char file_class[SM_MAX_BUF];
 
-	sscanf(argv, "%d %d %lf %s %s %s %s %s", &sm->numvis, &sm->numhid, &sm->learnrate,
+	sscanf(argv, "%d %d %d %lf %s %s %s %s %s", &sm->type, &sm->numvis, &sm->numhid, &sm->lambda,
 		file_pos, file_bm_pos, file_w, file_class, file_v2h);
 	fprintf(stdout, "print in fun construct_sm:\n"
+			"\ttype:%d[%s]\n"
 			"\tvisXhid:%dx%d\n"
-			"\tlearnrate:%lf\n"
-			"\tpos|bm_pos|w|class|v2h:%s|%s|%s|%s|%s\n", sm->numvis, sm->numhid, sm->learnrate,
+			"\tlambda:%lf\n"
+			"\tpos|bm_pos|w|class|v2h:%s|%s|%s|%s|%s\n",
+			sm->type, network_type[sm->type], sm->numvis, sm->numhid, sm->lambda,
 			file_pos, file_bm_pos, file_w, file_class, file_v2h);
 
 	sm->numclass = (int *)malloc(sm->numvis * sizeof(int));

@@ -75,7 +75,7 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 	for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
 		ip->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
 	for (nc = 0; nc < numcase; nc++) {
-		//printf("nc %d in sm_hid_nag\n", nc);
+		fprintf(stdout, "nc %d in sm_hid_nag\r", nc);
 		const int *vecV = V + nc * sm->numvis;
 		double *vecH = H + nc * sm->numhid;
 		memcpy(ip->c, sm->w->bh, sm->numhid * sizeof(double));
@@ -107,6 +107,7 @@ void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, 
 		}
 		for (nh < 0; nh < sm->numhid; nh++)
 			vecH[nh] = vecH[nh] > 0.5 ? 1.0 : 0.0;
+		memcpy(ip->x0, vecH, sm->numhid * sizeof(double));
 /*
 		nag_ip_init(&ip->options);
 		ip->options.prob = Nag_MIQP2;

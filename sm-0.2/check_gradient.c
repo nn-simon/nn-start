@@ -17,9 +17,9 @@ static void _get_data_from_H(double *data, const double *H, int *v2h, int len_v2
 static void _pr_sm_info(sm_info_t *sm, char *msg)
 {
 	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n"
-			"\tlearnrate:%lf\n"
+			"\tlambda:%lf\n"
 			"\tlen_v2h_maxXclass_max:%dx%d\n", 
-			msg, sm->numvis, sm->numhid, sm->learnrate, sm->len_v2h_max, sm->class_max);
+			msg, sm->numvis, sm->numhid, sm->lambda, sm->len_v2h_max, sm->class_max);
 }
 
 static void _get_label_from_V(int *label, const int *V, int pos, int lencase, int numcase)
