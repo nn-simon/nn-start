@@ -4,14 +4,16 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
-#include "rsm.h"
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <errno.h>
 #include "train.h"
+#include "sm.h"
 #include "classify.h"
+#include "sm_hid.h"
+#include "random.h"
 
 #define MAX_BUF 128
 
@@ -43,30 +45,58 @@ static void data2V(int *V, const int *numclass, const uint8_t *data, int numcase
 	}
 }
 
-static void _pr_rsm_info(rsm_info_t *rsm, char *msg)
+static void _pr_sm_info(sm_info_t *sm, char *msg)
 {
-	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n", msg, rsm->numvis, rsm->numhid);
+	fprintf(stdout, "%s:\n\tnumvisXnumhid:%dx%d\n"
+			"\tlambda:%lf\n"
+			"\tlen_v2h_maxXclass_max:%dx%d\n", 
+			msg, sm->numvis, sm->numhid, sm->lambda, sm->len_v2h_max, sm->class_max);
+}
+
+static void _pr_vh_info(sm_info_t *sm)
+{
+	int nv, nh, nl;
+	for (nv = 0; nv < sm->numvis; nv++) {
+		fprintf(stdout, "v.%d:(%d)", nv, sm->len_v2h[nv]);
+		for (nl = 0; nl < sm->len_v2h[nv]; nl++)
+			fprintf(stdout, "%d ", sm->v2h[nv][nl]);
+		fprintf(stdout, "\n");
+	}
+	for (nh = 0; nh < sm->numhid; nh++) {
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->h2v[nh][nl]);
+		fprintf(stdout, "\n");
+		fprintf(stdout, "h.%d:(%d)", nh, sm->len_h2v[nh]);
+		for (nl = 0; nl < sm->len_h2v[nh]; nl++)
+			fprintf(stdout, "%d ", sm->pos_h2v[nh][nl]);
+		fprintf(stdout, "\n");
+	}
 }
 
 static void _pr_train_info(train_info_t *train, char *msg)
 {
-	fprintf(stdout, "%s:\n\titeration:%d\n"
+	fprintf(stdout, "%s:\n\tnumsample:%d\n"
+			"\titeration:%d\n"
 			"\tmininumcase:%d\n"
 			"\tbatchsize:%d\n"
-			"\tnummix:%d\n",
-			msg, train->iteration, train->mininumcase, train->batchsize, train->nummix);
+			"\tnummix:%d\n"
+			"\tlearnrate:%lf\n",
+			msg, train->numsample, train->iteration, train->mininumcase, train->batchsize, train->nummix, train->learnrate);
 }
 
 static void _pr_data_info(data_info_t *data, char *msg)
 {
 	fprintf(stdout, "%s:\n\tnumcaseXchannelcaseXnumchannel:%dx%dx%d\n",
 		msg, data->numcase, data->channelcase, data->numchannel);
+	fprintf(stdout, "%s:\n\tdata format:numcaseXlencase\n", msg);
 }
 
 static void _pr_classify(classify_t *clssfy, char *msg)
 {
 	fprintf(stdout, "%s:\n\tnumclassXlencaseXnumcase:%dx%dx%d\n",
 		msg, clssfy->numclass, clssfy->lencase, clssfy->numcase);
+	fprintf(stdout, "%s:\n\tpara format:lencaseXnumclass\n", msg);
 }
 
 static void _char_replace(char *str, char before, char after)
@@ -90,34 +120,51 @@ static void _labels2clssfy(classify_t *clssfy, const int * labels, int numcase, 
 	}
 }
 
-static int parse_command_line(int argc, char *argv[], train_info_t *train, rsm_info_t *rsm, data_info_t *data, classify_t *clssfy, char *out)
+static void _alloc_data(data_info_t *data)
+{
+	data->data = (uint8_t *) malloc((size_t)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
+	data->labels = (int *) malloc(data->numcase * sizeof(int));
+	if (!(data->data && data->labels)) {
+		fprintf(stderr, "malloc error in _alloc_data!\n");
+		exit(0);
+	}
+}
+
+static void _free_data(data_info_t *data)
+{
+	free(data->data);
+	free(data->labels);
+}
+
+static void parse_command_line(int argc, char *argv[], train_info_t *train, sm_info_t *sm, data_info_t *data, classify_t *clssfy, char *out)
 {
 	char n_dtr[MAX_BUF], n_ltr[MAX_BUF];
-	char n_w[MAX_BUF], n_pos[MAX_BUF], n_mix[MAX_BUF];
-	char n_clssfy[MAX_BUF], n_class[MAX_BUF];
+	char n_mix[MAX_BUF];
+	char n_clssfy[MAX_BUF];
 
 	char ch;
-	while((ch = getopt(argc, argv, "c:n:r:o:t:T:")) != -1) {
+	while((ch = getopt(argc, argv, "c:n:s:o:t:")) != -1) {
 		switch(ch) {
 		case 'c':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &clssfy->numclass, n_clssfy);
+			//clssfy->lencase = sm->numhid;
 			printf("[c]%s:%d,%s[%ld]\n", optarg, clssfy->numclass, n_clssfy, strlen(n_clssfy));
 			break; 
 		case 'n':
 			_char_replace(optarg, ',', ' ');
-			sscanf(optarg, "%d %d %d %d %s", 
-				&train->iteration, &train->batchsize, &train->mininumcase, &train->nummix, n_mix);
-			printf("[n]%s:%dx%dx%dx%d,%s[%ld]\n", optarg, train->iteration, train->batchsize, train->mininumcase, train->nummix, n_mix, strlen(n_mix));
+			sscanf(optarg, "%d %d %d %d %d %lf %s", 
+				&train->numsample, &train->iteration, &train->batchsize, &train->mininumcase, &train->nummix, &train->learnrate, n_mix);
+			printf("[n]%s:%dx%dx%dx%d,%lf,%s[%ld]\n", optarg, train->iteration, train->batchsize, train->mininumcase, train->nummix, train->learnrate, n_mix, strlen(n_mix));
 			break;
-		case 'r':
+		case 's':
 			_char_replace(optarg, ',', ' ');
-			sscanf(optarg, "%d %d %s %s %s",
-				&rsm->numvis, &rsm->numhid, n_class, n_pos, n_w);
-			printf("[r]%s:%dx%d,%s[%ld],%s[%ld],%s[%ld]\n", optarg, rsm->numvis, rsm->numhid, n_class, strlen(n_class), n_pos, strlen(n_pos), n_w, strlen(n_w));
+			construct_sm(sm, optarg);
+			printf("[s]%s\n", optarg);
 			break;
 		case 'o':
 			strncpy(out, optarg, MAX_BUF);
+			printf("[o]%s\n", optarg);
 			break;
 		case 't':
 			_char_replace(optarg, ',', ' ');
@@ -131,57 +178,23 @@ static int parse_command_line(int argc, char *argv[], train_info_t *train, rsm_i
 	}
 
 	fprintf(stdout, "other para:\n"
-			"\tweight|class|position:%s|%s|%s\n"
 			"\ttraindata|tainlabel:%s|%s\n"
 			"\tmix|classify:%s|%s\n",
-			n_w, n_class, n_pos,
 			n_dtr, n_ltr, n_mix, n_clssfy);
 
-	clssfy->lencase = rsm->numhid;
+	clssfy->lencase = sm->numhid;
 	clssfy->numcase = train->mininumcase * train->nummix;
 	clssfy_build(clssfy);
-
-	clssfy->w = malloc(clssfy->lencase * clssfy->numclass * sizeof(double));
-	if (clssfy->w == NULL) {
-		fprintf(stderr, "malloc clssfy->w error!\n");
-		exit(0);
-	}
 	get_data(n_clssfy, clssfy->w, clssfy->lencase * clssfy->numclass * sizeof(double));
 
 	_pr_train_info(train, "train info");
-	_pr_rsm_info(rsm, "rsm info");
+	_pr_sm_info(sm, "sm info");
 	_pr_data_info(data, "train data info");
 	_pr_classify(clssfy, "clssfy");
 
-	data->data = (uint8_t *) malloc((long)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
-	data->labels = (int *) malloc(data->numcase * sizeof(int));
-	if (!(data->data && data->labels)) {
-		fprintf(stderr, "malloc error!\n");
-		exit(0);
-	}
+	_alloc_data(data);
 	get_data(n_ltr, data->labels, data->numcase * sizeof(int));
-	get_data(n_dtr, data->data, (long)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
-
-	rsm->numclass = (int *) malloc(rsm->numvis * sizeof(int));
-	rsm->position = (int*) malloc(rsm->numvis * sizeof(int));
-	if (!(rsm->numclass && rsm->position)) {
-		fprintf(stderr, "malloc error!\n");
-		exit(0);
-	}
-	get_data(n_class, rsm->numclass, rsm->numvis * sizeof(int));
-	get_data(n_pos, rsm->position, rsm->numvis * sizeof(int));
-
-	int nv, lenw = 0;
-	for (nv = 0; nv < rsm->numvis; nv++)
-		lenw += rsm->numclass[nv] * (rsm->numhid + 1);
-	double *w = (double*) malloc((lenw + rsm->numhid) * sizeof(double));
-	if (!w) {
-		fprintf(stderr, "malloc error!\n");
-		exit(0);
-	}
-	get_data(n_w, w, (lenw + rsm->numhid) * sizeof(double));
-	rsm->w = w;
-	rsm->bh = w + lenw;
+	get_data(n_dtr, data->data, (size_t)data->numcase * data->channelcase * data->numchannel * sizeof(uint8_t));
 
 	train->mix = (double *) malloc(train->nummix * data->numchannel * sizeof(double));
 	if (!train->mix) {
@@ -189,37 +202,38 @@ static int parse_command_line(int argc, char *argv[], train_info_t *train, rsm_i
 		exit(0);
 	}
 	get_data(n_mix, train->mix, train->nummix * data->numchannel * sizeof(double));
-	return lenw;
 }
 
-static _free_mem(train_info_t *train, rsm_info_t *rsm, data_info_t *data, classify_t *clssfy)
+static void _free_mem(train_info_t *train, sm_info_t *sm, data_info_t *data, classify_t *clssfy)
 {
 	free(train->mix);
-	free(rsm->position);
-	free(rsm->numclass);
-	free(rsm->w);
-	free(data->labels);
-	free(data->data);
+	destroy_sm(sm);
+	_free_data(data);
 	clssfy_clear(clssfy);
-	free(clssfy->w);
 }
 
 int main(int argc, char *argv[])
 {
 	train_info_t train;
-	rsm_info_t rsm;
-	data_info_t data; //dtr: datatrain, dtt: datatest
+	sm_info_t sm;
+	data_info_t data;
 	classify_t clssfy;
 	char out[MAX_BUF];
-	int lenw = parse_command_line(argc, argv, &train, &rsm, &data, &clssfy, out);
+	parse_command_line(argc, argv, &train, &sm, &data, &clssfy, out);
 
 	int train_numcase = train.mininumcase * train.nummix;
-	double *H = (double*) malloc(train_numcase * (rsm.numhid + 1) * sizeof(double));
-	int *V = (int*) malloc(train_numcase * rsm.numvis * sizeof(int));
+	double *H = (double*) malloc(train_numcase * sm.numhid * sizeof(double));
+	double *init = (double *) malloc(sm.numhid * sizeof(double));
+	int *V = (int*) malloc(train_numcase * sm.numvis * sizeof(int));
 	int *order = malloc(sizeof(int) * (train_numcase > data.numcase ? train_numcase : data.numcase));
-	if (!(H && V && order)) {
+	if (!(H && V && order && init)) {
 		fprintf(stderr, "malloc error!\n");
 		exit(0);
+	}
+	int nh;
+	srand(time(NULL));
+	for (nh = 0; nh < sm.numhid; nh++) {
+		init[nh] = (double)rand() / RAND_MAX > 0.5 ? 1.0 : 0.0; 
 	}
 
 	int iter, curbatch = 0;
@@ -227,8 +241,9 @@ int main(int argc, char *argv[])
 	long minibatchlength = (long)train.mininumcase * data.channelcase * data.numchannel;
 	double cost;
 
-	init_hid_nag_ip_struct(clssfy.lencase, clssfy.numclass - 1);
-
+	hid_nag_ip_t ip;
+	init_hid_nag_ip_struct(&ip, clssfy.lencase, 0);
+	open_random();
 	for (iter = 0; iter < train.iteration; iter++) {
 		if (curbatch >= totalbatch)
 			curbatch = 0;
@@ -239,26 +254,40 @@ int main(int argc, char *argv[])
 		}
 		uint8_t *unlbl = data.data + curbatch * minibatchlength;
 		fprintf(stdout, "**** iter %d, loc %ld, current data pointer %p ****\n", iter, curbatch * minibatchlength, unlbl);
-		data2V(V, rsm.numclass, unlbl, train.mininumcase, data.channelcase, data.numchannel, rsm.position, rsm.numvis, train.mix, train.nummix);
-		_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
-		classify_get_hid(rsm.w, rsm.bh, V, H, rsm.numvis, rsm.numhid, rsm.numclass, train_numcase, &clssfy);
-		int xx, yy;
-		for (xx = 0; xx < 1; xx++) {
-			for (yy=0; yy < rsm.numhid; yy++)
-				fprintf(stdout, "%d", (int)(H[xx * (rsm.numhid + 1) + yy]));
+		data2V(V, sm.numclass, unlbl, train.mininumcase, data.channelcase, data.numchannel, sm.position, sm.numvis, train.mix, train.nummix);
+		//_labels2clssfy(&clssfy, data.labels + curbatch * train.mininumcase, train.mininumcase, train.nummix);
+		//classify_get_hid(sm.w, sm.bh, V, H, sm.numvis, sm.numhid, sm.numclass, train_numcase, &clssfy);
+		//sm_hid_nag(&sm, &ip, V, H, train_numcase, init);
+		double *bh = init; // in sm_hid_random, there is no need to initilize h.
+		sm_hid_random(&sm, V, H, train_numcase, train.numsample, bh);
+		//sm_hid_sa(&sm, V, H, train_numcase, train.numsample, bh);
+/*		{ // for check gradient
+		_pr_sm_info(&sm, "2, sm info");
+		check_gradient(&sm, V, H, train_numcase);
+		fprintf(stdout, "return !\n\n");
+		return;
+		}
+*/		int xx, yy;
+		for (xx = 0; xx < 2; xx++) {
+			for (yy=0; yy < sm.numhid; yy++)
+				fprintf(stdout, "%d", (int)(H[xx * sm.numhid + yy]));
 			fprintf(stdout, "\n");
 		}
-		randperm(order, train_numcase);
-		reorder(V, sizeof(int), order, train_numcase, rsm.numvis);
-		reorder(H, sizeof(double), order, train_numcase, rsm.numhid + 1);
-		cost = rsm_train(rsm.w, rsm.bh, V, H, rsm.numvis, rsm.numhid, rsm.numclass, train_numcase, train.batchsize);
+		if (train.nummix > 1) {
+			randperm(order, train_numcase);
+			reorder(V, sizeof(int), order, train_numcase, sm.numvis);
+			reorder(H, sizeof(double), order, train_numcase, sm.numhid);
+		}
+		cost = sm_train(&sm, train.learnrate, V, H, train_numcase, train.batchsize);
 
 		curbatch++;
 	}
-
-	out_data(out, rsm.w, (lenw + rsm.numhid) * sizeof(double));
-	free_hid_nag_ip_struct();
-
+	close_random();
+	out_w(out, &sm);
+	free_hid_nag_ip_struct(&ip);
+	_free_mem(&train, &sm, &data, &clssfy);
+	
+	free(init);
 	free(V);
 	free(H);
 	free(order);

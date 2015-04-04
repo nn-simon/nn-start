@@ -13,6 +13,6 @@ typedef struct classify {
 } classify_t;
 
 void prediction(classify_t *);
-void clssfy_build(classify_t *);
+void clssfy_build(classify_t *);// data's memory not allocated
 void clssfy_clear(classify_t *);
 #endif
