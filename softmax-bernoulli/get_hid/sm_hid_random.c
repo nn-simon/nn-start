@@ -34,7 +34,7 @@ static _gibbs_sample(double *h, const double *w, const uint8_t *pos, const doubl
 //	pr_array(stdout, h, 1, 17, 'd');
 }
 
-void sm_hid_random(const sm_info_t *sm, const int *V, double *H, int numcase, int numsample, void *reserved)
+void sm_hid_random(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved)
 {
 	int nh, nc, ns, nl;
 	double *bh = reserved;

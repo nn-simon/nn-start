@@ -67,7 +67,7 @@ static void _construct_h(double *h, const double *bm_w, const uint8_t *bm_pos, i
 	}
 }
 
-void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, void *reserved)
+void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved)
 {
 	int nv, nh, nc, nl;
 	double fval;
@@ -180,13 +180,10 @@ static void _hid_correction(const sm_info_t *sm, const classify_t *clssfy, const
 	}
 }
 
-void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, hid_nag_ip_t *ip_constraints, const int *V, double *H, int numcase, void *reserved)
+void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, void *reserved)
 {
 	//generate H
-	sm_hid_nag(sm, ip, V, H, numcase, NULL);
 	classify_t *clssfy = reserved;
-	clssfy->data = H;
-	prediction(clssfy);
 	int nc, nl;
 	int right = 0;
 	for (nc = 0; nc < numcase; nc++) {
@@ -194,10 +191,10 @@ void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, hid_nag_ip_t *ip_co
 			right++;
 			continue;
 		}
-		_construct_h(ip_constraints->h, sm->w->bm_w, sm->bm_pos, sm->numhid);
+		_construct_h(ip->h, sm->w->bm_w, sm->bm_pos, sm->numhid);
 		for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
-			ip_constraints->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
-		_hid_correction(sm, clssfy, V + nc * sm->numvis, H + nc * sm->numhid, clssfy->labels[nc], ip_constraints);
+			ip->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
+		_hid_correction(sm, clssfy, V + nc * sm->numvis, H + nc * sm->numhid, clssfy->labels[nc], ip);
 	}
 	fprintf(stdout, "accurate: %lf\n", (double)right / numcase);
 }

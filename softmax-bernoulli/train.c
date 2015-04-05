@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 		int *V_batch = V + curbatch * mininumcase * sm.numvis;
 		fprintf(stdout, "**** iter %d, loc %ld, current data pointer %p ****\n", iter, (size_t)curbatch * mininumcase * sm.numvis, V_batch);
 
-		get_hid[hid_type_num](&sm, V_batch, H, mininumcase, numsample, bh);
+		get_hid[hid_type_num](&sm, NULL, V_batch, H, mininumcase, numsample, bh);
 		int xx, yy;
 		for (xx = 0; xx < 2; xx++) {
 			for (yy=0; yy < sm.numhid; yy++)

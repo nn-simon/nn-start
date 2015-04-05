@@ -52,23 +52,31 @@ static void _char_replace(char *str, char before, char after)
 int main(int argc, char *argv[])
 {
 	sm_info_t sm;
+	classify_t clssfy;
+	char n_clssfy[MAX_BUF] = "";
 	char out[MAX_BUF];
 	char n_V[MAX_BUF];
 	int numcase;
 	int numsample;
 	int batchsize;
 	char hid_name[MAX_BUF];
-	char hid_type_name[MAX_HID_TYPE][MAX_BUF] = {"rand", "sa", "nag", "classify"};
+	char hid_type_name[MAX_HID_TYPE][MAX_BUF] = {"rand", "sa", "nag"};
 	fun_get_hid get_hid[MAX_HID_TYPE] = {sm_hid_random, sm_hid_sa};//, sm_hid_nag, classify_get_hid};
 	int hid_type_num = 0;
 
 	char ch;
-	while((ch = getopt(argc, argv, "d:m:b:o:f:")) != -1) {
+	while((ch = getopt(argc, argv, "d:m:b:o:f:c:")) != -1) {
 		int i;
 		switch(ch) {
 		case 'b':
 			batchsize = atoi(optarg);
 			break;
+		case 'c':
+			_char_replace(optarg, ',', ' ');
+			sscanf(optarg, "%d %s", &clssfy.numclass, n_clssfy);
+			//clssfy->lencase = sm->numhid;
+			printf("[c]%s:%d,%s[%ld]\n", optarg, clssfy.numclass, n_clssfy, strlen(n_clssfy));
+			break; 
 		case 'd':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &numcase, n_V);
@@ -110,6 +118,14 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "numcase:%d\nhid_type:%s\n"
 			"batchsize:%d\nnumsample:%d\n",
 			numcase, hid_type_name[hid_type_num], batchsize, numsample);
+	hid_nag_ip_t ip;
+	if (n_clssfy[0] != '\0') {
+		clssfy.lencase = sm.numhid;
+		clssfy.numcase = batchsize;
+		clssfy_build(&clssfy);
+		get_data(n_clssfy, clssfy.w, clssfy.lencase * clssfy.numclass * sizeof(double));
+		init_hid_nag_ip_struct(&ip, clssfy.lencase, clssfy.numclass - 1);	
+	}
 
 	double *H = (double*) malloc(batchsize * sm.numhid * sizeof(double));
 	int *V = (int*) malloc(batchsize * sm.numvis * sizeof(int));
@@ -137,14 +153,23 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "read %s err!\n", n_V);
                         exit(0);
 		}
-		get_hid[hid_type_num](&sm, V, H, batchsize, numsample, bh);
+		get_hid[hid_type_num](&sm, NULL, V, H, batchsize, numsample, bh);
+		if (n_clssfy[0] != '\0') {
+			clssfy.data = H;
+			prediction(&clssfy);
+			classify_get_hid(&sm, &ip, V, H, batchsize, &clssfy);
+		}
                 if (fwrite(H, sizeof(double), batchsize * sm.numhid, fout) != batchsize * sm.numhid) {
                         fprintf(stderr, "write %s err!\n", out);
                         exit(0);
 		}
 		numcase -= batchsize;
 	}
-	close_random();	
+	close_random();
+	if (n_clssfy[0] != '\0') {
+		clssfy_clear(&clssfy);
+		free_hid_nag_ip_struct(&ip);
+	}
 	destroy_sm(&sm);
 	free(bh);
 	free(V);

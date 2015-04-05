@@ -52,7 +52,7 @@ static _simu_anneal(double *h, const double *w, const uint8_t *pos, const double
 	memcpy(h, _hmax, dim * sizeof(double));
 }
 
-void sm_hid_sa(const sm_info_t *sm, const int *V, double *H, int numcase, int numsample, void *reserved)
+void sm_hid_sa(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved)
 {
 	int nh, nc, ns, nl;
 	double *bh = reserved;
