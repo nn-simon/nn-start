@@ -11,9 +11,9 @@ typedef struct {
 typedef struct {
 	int numvis;
 	int numhid;
-	double lambda;
-	int *numclass;
 	int *position;
+	int *numclass;
+	double lambda;
 	int type; // type of network, rsm or sm
 	sm_w_t *w;
 	uint8_t *bm_pos;

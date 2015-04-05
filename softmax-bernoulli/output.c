@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "model/sm.h"
 #include "get_hid/sm_hid.h"
+#include "utils/utils.h"
 
 #define MAX_BUF 128
 
@@ -71,12 +72,12 @@ int main(int argc, char *argv[])
 		case 'd':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &numcase, n_V);
-			printf("[t]%s:%d,%s[%ld]\n", optarg, numcase, n_V, strlen(n_V));
+			printf("[d]%s:%d,%s[%ld]\n", optarg, numcase, n_V, strlen(n_V));
 			break;
 		case 'f':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &numsample, hid_name);
-			printf("[t]%s:%d,%s[%ld]\n", optarg, numsample, hid_name, strlen(hid_name));
+			printf("[f]%s:%d,%s[%ld]\n", optarg, numsample, hid_name, strlen(hid_name));
 			for (i = 0; i < NUM_HID_TYPE; i++) {
 				if (strncmp(hid_type_name[i], hid_name, MAX_BUF) == 0)
 					break;
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
 		case 'm':
 			_char_replace(optarg, ',', ' ');
 			construct_sm(&sm, optarg);
-			printf("[s]%s\n", optarg);
+			printf("[m]%s\n", optarg);
 			break;
 		case 'o':
 			strncpy(out, optarg, MAX_BUF);
@@ -105,6 +106,10 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 	}
+	_pr_sm_info(&sm, "sm info");
+	fprintf(stdout, "numcase:%d\nhid_type:%s\n"
+			"batchsize:%d\nnumsample:%d\n",
+			numcase, hid_type_name[hid_type_num], batchsize, numsample);
 
 	double *H = (double*) malloc(batchsize * sm.numhid * sizeof(double));
 	int *V = (int*) malloc(batchsize * sm.numvis * sizeof(int));
@@ -119,12 +124,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "can't open %s !\n", n_V);
 		exit(0);
 	}
-	FILE *fout = fopen(out, "r");
+	FILE *fout = fopen(out, "w");
 	if (fout == NULL) {
 		fprintf(stderr, "can't open %s !\n", out);
 		exit(0);
 	}
-
+	open_random();
 	while (numcase > 0) {
 		if (numcase < batchsize)
 			batchsize = numcase;
@@ -139,7 +144,7 @@ int main(int argc, char *argv[])
 		}
 		numcase -= batchsize;
 	}
-	
+	close_random();	
 	destroy_sm(&sm);
 	free(bh);
 	free(V);

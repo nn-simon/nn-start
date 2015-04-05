@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "model/sm_train.h"
 #include "model/sm.h"
+#include "utils/utils.h"
 #include "get_hid/sm_hid.h"
 
 #define MAX_BUF 128
@@ -69,12 +70,12 @@ int main(int argc, char *argv[])
 		case 'd':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &numcase, n_V);
-			printf("[t]%s:%d,%s[%ld]\n", optarg, numcase, n_V, strlen(n_V));
+			printf("[d]%s:%d,%s[%ld]\n", optarg, numcase, n_V, strlen(n_V));
 			break;
 		case 'f':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s", &numsample, hid_name);
-			printf("[t]%s:%d,%s[%ld]\n", optarg, numsample, hid_name, strlen(hid_name));
+			printf("[f]%s:%d,%s[%ld]\n", optarg, numsample, hid_name, strlen(hid_name));
 			for (i = 0; i < NUM_HID_TYPE; i++) {
 				if (strncmp(hid_type_name[i], hid_name, MAX_BUF) == 0)
 					break;
@@ -94,12 +95,12 @@ int main(int argc, char *argv[])
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %d %d %lf", 
 				&iteration, &batchsize, &mininumcase, &learnrate);
-			printf("[n]%s:%dx%dx%d,%lf\n", optarg, iteration, batchsize, mininumcase, learnrate);
+			printf("[t]%s:%dx%dx%d,%lf\n", optarg, iteration, batchsize, mininumcase, learnrate);
 			break;
 		case 'm':
 			_char_replace(optarg, ',', ' ');
 			construct_sm(&sm, optarg);
-			printf("[s]%s\n", optarg);
+			printf("[m]%s\n", optarg);
 			break;
 		case 'o':
 			strncpy(out, optarg, MAX_BUF);
@@ -111,19 +112,25 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	double *H = (double*) malloc(numcase * sm.numhid * sizeof(double));
-	int *V = (int*) malloc(numcase * sm.numvis * sizeof(int));
+	double *H = (double*) malloc(mininumcase * sm.numhid * sizeof(double));
+	int *V = (int*) malloc((size_t)numcase * sm.numvis * sizeof(int));
 	int *order = malloc(sizeof(int) * numcase);
 	double *bh = (double *) malloc(sm.numhid * sizeof(double));
 	if (!(H && V && order && bh)) {
 		fprintf(stderr, "malloc error!\n");
 		exit(0);
 	}
+	_pr_sm_info(&sm, "sm info");
+	fprintf(stdout, "numcase:%d\niteration:%d\n"
+			"mininumcase:%d\nhid_type:%s\n"
+			"batchsize:%d\nlearnrate:%lf\n",
+			numcase, iteration, mininumcase, hid_type_name[hid_type_num], batchsize, learnrate);
 
 	get_data(n_V, V, (size_t)numcase * sm.numvis * sizeof(int));
 
 	int totalbatch = numcase / mininumcase;
 	int iter, curbatch = 0;
+	open_random();
 	for (iter = 0; iter < iteration; iter++) {
 		if (curbatch >= totalbatch)
 			curbatch = 0;
@@ -145,6 +152,7 @@ int main(int argc, char *argv[])
 
 		curbatch++;
 	}
+	close_random();
 
 	out_w(out, &sm);
 	destroy_sm(&sm);

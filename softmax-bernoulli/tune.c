@@ -60,18 +60,18 @@ int main(int argc, char *argv[])
 		case 'd':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %s %s", &numcase, n_V, n_H);
-			printf("[t]%s:%d,%s[%ld],%s[%ld]\n", optarg, numcase, n_V, strlen(n_V), n_H, strlen(n_H));
+			printf("[d]%s:%d,%s[%ld],%s[%ld]\n", optarg, numcase, n_V, strlen(n_V), n_H, strlen(n_H));
 			break;
 		case 't':
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %d %lf", 
 				&iteration, &batchsize, &learnrate);
-			printf("[n]%s:%dx%d,%lf\n", optarg, iteration, batchsize, learnrate);
+			printf("[t]%s:%dx%d,%lf\n", optarg, iteration, batchsize, learnrate);
 			break;
 		case 'm':
 			_char_replace(optarg, ',', ' ');
 			construct_sm(&sm, optarg);
-			printf("[s]%s\n", optarg);
+			printf("[m]%s\n", optarg);
 			break;
 		case 'o':
 			strncpy(out, optarg, MAX_BUF);
@@ -82,6 +82,10 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 	}
+	_pr_sm_info(&sm, "sm info");
+	fprintf(stdout, "numcase:%d\niteration:%d\n"
+			"batchsize:%d\nlearnrate:%lf\n",
+			numcase, iteration, batchsize, learnrate);
 
 	double *H = (double*) malloc(numcase * sm.numhid * sizeof(double));
 	int *V = (int*) malloc(numcase * sm.numvis * sizeof(int));

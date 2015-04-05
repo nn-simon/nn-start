@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include "utils/utils.h"
 
-void data2V(int *V, const int *numclass, const uint8_t *data, int channelcase, int numchannel, const int *position, int numvis, const double *mix, int nummix, int repetition)
+static void data2V(int *V, const int *numclass, const uint8_t *data, int channelcase, int numchannel, const int *position, int numvis, const double *mix, int nummix, int repetition)
 {
         int nm, nv, nr;
         for (nm = 0; nm < nummix; nm++) {
