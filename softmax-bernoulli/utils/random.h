@@ -7,6 +7,7 @@
 
 void open_random();
 void close_random();
+void test_random();
 unsigned random_self();
 
 #endif

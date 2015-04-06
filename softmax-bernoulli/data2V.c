@@ -106,6 +106,9 @@ int main(int argc, char *argv[])
                         exit(0);
                 }
                 data2V(V, numclass, data, channelcase, numchannel, position, numvis, mix, nummix, 1);
+	//	pr_array(stdout, V, 1, 10, 'i');
+	//	pr_array(stdout, V + numvis, 1, 10, 'i');
+	//	pr_array(stdout, V + 2 * numvis, 1, 10, 'i');
                 if (fwrite(V, sizeof(int), numvis * nummix, out) != numvis * nummix) {
                         fprintf(stderr, "write %s err!\n", name_out);
                         exit(0);

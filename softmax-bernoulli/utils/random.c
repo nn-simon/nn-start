@@ -15,6 +15,11 @@ void open_random()
 	}
 }
 
+void test_random()
+{
+	fprintf(stdout, "rand:%p\n", fp_rand);
+}
+
 unsigned random_self()
 {
 	unsigned r;

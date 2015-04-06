@@ -166,12 +166,14 @@ static void _hid_correction(const sm_info_t *sm, const classify_t *clssfy, const
 	ip->options.print_level = Nag_NoPrint;
 	strncpy(ip->options.outfile, "ip_out", 80);// 80 is the length of options.outfile 
 
+//	fprintf(stdout, "ip_bb start\n");
 	nag_ip_bb(ip->num_variables, ip->num_constraints, ip->a, ip->num_variables, ip->bl, ip->bu, ip->intvar,
 		ip->c, ip->h, ip->num_variables, NULLFN, H, &fval, &ip->options, NAGCOMM_NULL, &ip->fail);
 	if (ip->fail.code != NE_NOERROR) {
 		printf("Error from nag_ip_bb (h02bbc).\n%s\n", ip->fail.message);
 		exit(0);
 	}
+	fprintf(stdout, "ip_bb val:%lf\n", fval);
 
 	nag_ip_free(&ip->options, "", &ip->fail);
 	if (ip->fail.code != NE_NOERROR) {
@@ -180,21 +182,37 @@ static void _hid_correction(const sm_info_t *sm, const classify_t *clssfy, const
 	}
 }
 
+static int _count(double *h1, double *h2, int dim)
+{
+	int nd, cnt = 0;
+	for (nd = 0; nd < dim; nd++)
+		if (h1[nd] > 0.5 && h2[nd] > 0.5)
+			cnt++;
+		else if(h1[nd] < 0.5 && h2[nd] < 0.5)
+			cnt++;
+	return cnt;
+}
+
 void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, void *reserved)
 {
 	//generate H
 	classify_t *clssfy = reserved;
 	int nc, nl;
 	int right = 0;
+	double _h[10000];
+	_construct_h(ip->h, sm->w->bm_w, sm->bm_pos, sm->numhid);
+	for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
+		ip->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
+	//fprintf(stdout, "iter start\n");
 	for (nc = 0; nc < numcase; nc++) {
 		if (clssfy->pred[nc] == clssfy->labels[nc]) {	
 			right++;
 			continue;
 		}
-		_construct_h(ip->h, sm->w->bm_w, sm->bm_pos, sm->numhid);
-		for (nl = 0; nl < sm->numhid * sm->numhid; nl++)
-			ip->h[nl] *= -1.0; //nag_ip_bb can only get minimized value
+		fprintf(stdout, "%d %d:", nc, right);
+//		memcpy(_h, H + nc * sm->numhid, sm->numhid * sizeof(double));
 		_hid_correction(sm, clssfy, V + nc * sm->numvis, H + nc * sm->numhid, clssfy->labels[nc], ip);
+//		fprintf(stdout, "cnt %d\n", _count(_h, H + nc * sm->numhid, sm->numhid));
 	}
 	fprintf(stdout, "accurate: %lf\n", (double)right / numcase);
 }

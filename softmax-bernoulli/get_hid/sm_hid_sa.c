@@ -1,13 +1,15 @@
 #include "../utils/random.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include "sm_hid.h"
+#include <pthread.h>
 
 #define MAX_NODE 10000
 
-static _simu_anneal(double *h, const double *w, const uint8_t *pos, const double *bh, int dim, int times)
+static void _simu_anneal(double *h, const double *w, const uint8_t *pos, const double *bh, int dim, int times)
 {
 	int nd, nl, nt;
 	double esum = 0.0, emax = 0.0;
@@ -48,7 +50,7 @@ static _simu_anneal(double *h, const double *w, const uint8_t *pos, const double
 			emax = esum;
 		}
 	}
-	printf("_simu_annel: emax %lf\r", emax);
+	//printf("_simu_annel: emax %lf\r", emax);
 	memcpy(h, _hmax, dim * sizeof(double));
 }
 
@@ -73,5 +75,69 @@ void sm_hid_sa(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, i
 		_simu_anneal(vecH, sm->w->bm_w, sm->bm_pos, bh, sm->numhid, numsample * sm->numhid);
 		//x0 = vecH;
 		//pr_array(stdout, vecH, 1, 18, 'd');
+	}
+}
+
+typedef struct {
+	sm_info_t *sm;
+	int *V;
+	double *H;
+	int numcase;
+	int numsample;
+	double *bh;
+	int id;
+} thr_para_t;
+
+static void *thr_fn(void *arg)
+{
+	thr_para_t *para = arg;
+	//test_random();
+	//fprintf(stdout, "id(%d):%p %p %p %d %d %p\n", para->id, para->sm, para->V, para->H, para->numcase, para->numsample, para->bh);
+	sm_hid_sa(para->sm, NULL, para->V, para->H, para->numcase, para->numsample, para->bh);
+	return (void *) para->id;
+}
+
+#define MAX_THREAD_NUM	64
+
+void sm_hid_sa_thr(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved)
+{
+	int thr_num = *(int*)reserved;
+	if (thr_num > MAX_THREAD_NUM - 1) {
+		fprintf(stderr, "notice: thr_num(%d) > MAX_THREAD_NUM(%d) - 1\n", thr_num, MAX_THREAD_NUM);
+		thr_num = MAX_THREAD_NUM - 1;
+	}
+	thr_para_t para[MAX_THREAD_NUM];
+	pthread_t thrid[MAX_THREAD_NUM];
+	double bh[MAX_THREAD_NUM * MAX_NODE];
+	int batchsize = numcase / thr_num;
+
+	int nthr;
+	for (nthr = 0; nthr <= thr_num; nthr++) {
+		para[nthr].sm = sm;
+		para[nthr].V = V + nthr * batchsize * sm->numvis;
+		para[nthr].H = H + nthr * batchsize * sm->numhid;
+		para[nthr].numcase = batchsize;
+		para[nthr].numsample = numsample;
+		para[nthr].bh = bh + nthr * sm->numhid;
+		para[nthr].id = nthr;
+	}
+	para[thr_num].numcase = numcase - batchsize * thr_num;
+	int err;
+	for (nthr = 0; nthr <= thr_num; nthr++) {
+		err = pthread_create(&thrid[nthr], NULL, thr_fn, &para[nthr]);
+		if (err != 0) {
+			fprintf(stderr, "can't create thread %d\n", nthr);
+			exit(0);
+		}
+		//fprintf(stdout, "thr: %d %d %ld\n", nthr, para[nthr].numcase, thrid[nthr]);
+	}
+	for (nthr = 0; nthr <= thr_num; nthr++) {
+		void *tret;
+		err = pthread_join(thrid[nthr], &tret);
+		if (err != 0) {
+			fprintf(stderr, "can't join thread %d\n", nthr);
+			exit(0);
+		}
+		fprintf(stdout, "thread %d exit code %d\r", nthr, (int)tret);
 	}
 }
