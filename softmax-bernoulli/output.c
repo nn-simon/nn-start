@@ -46,9 +46,6 @@ static void _char_replace(char *str, char before, char after)
 			*p = after;
 }
 
-#define MAX_HID_TYPE	16
-#define NUM_HID_TYPE	3
-
 int main(int argc, char *argv[])
 {
 	sm_info_t sm;
@@ -57,14 +54,10 @@ int main(int argc, char *argv[])
 	char n_label[MAX_BUF];
 	char out[MAX_BUF];
 	char n_V[MAX_BUF];
-	int numcase;
-	int numsample;
-	int batchsize;
-	int thr_num;
+	int numcase, numsample;
+	int batchsize, thr_num;
 	char hid_name[MAX_BUF];
-	char hid_type_name[MAX_HID_TYPE][MAX_BUF] = {"rand", "sa", "sa_thread", "nag"};
-	fun_get_hid get_hid[MAX_HID_TYPE] = {sm_hid_random, sm_hid_sa, sm_hid_sa_thr};//, sm_hid_nag, classify_get_hid};
-	int hid_type_num = 0;
+	fun_get_hid get_hid;
 
 	char ch;
 	while((ch = getopt(argc, argv, "d:m:b:o:f:c:")) != -1) {
@@ -88,19 +81,6 @@ int main(int argc, char *argv[])
 			_char_replace(optarg, ',', ' ');
 			sscanf(optarg, "%d %d %s", &numsample, &thr_num, hid_name);
 			printf("[f]%s:%dx%d,%s[%ld]\n", optarg, numsample, thr_num, hid_name, strlen(hid_name));
-			for (i = 0; i < NUM_HID_TYPE; i++) {
-				if (strncmp(hid_type_name[i], hid_name, MAX_BUF) == 0)
-					break;
-			}
-			hid_type_num = i;
-			if (hid_type_num >= NUM_HID_TYPE) {
-				fprintf(stderr, "for parameter f, you have following choices:\n\t|");
-				for (i = 0; i < NUM_HID_TYPE; i++)
-					fprintf(stderr, "%s|", hid_type_name[i]);
-				fprintf(stderr, "\nbut your parameter is %s\n", optarg);
-				fprintf(stderr, "notice that, the default parameter is %s\n", hid_type_name[0]);
-				exit(0);
-			}
 			break;
 		case 'm':
 			_char_replace(optarg, ',', ' ');
@@ -116,10 +96,15 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 	}
+
+	get_hid = choose_hid(hid_name, sm.type);
+	if (get_hid == NULL) {
+		exit(0);
+	}
 	_pr_sm_info(&sm, "sm info");
 	fprintf(stdout, "numcase:%d\nhid_type:%s\n"
 			"batchsize:%d\nnumsample:%d\nthr_num:%d\n",
-			numcase, hid_type_name[hid_type_num], batchsize, numsample, thr_num);
+			numcase, hid_name, batchsize, numsample, thr_num);
 	hid_nag_ip_t ip;
 	FILE *flabel;
 	if (n_clssfy[0] != '\0') {
@@ -155,16 +140,8 @@ int main(int argc, char *argv[])
 	}
 
 	open_random();
-	void *reserved;
-	switch (hid_type_num) {
-		case 0:
-		case 1:
-			reserved = bh;
-			break;
-		case 2:
-			reserved = &thr_num;
-			break;
-	}
+	*(int*)bh = thr_num;
+	void *reserved = bh;
 	int cnt = 0;
 	while (numcase > 0) {
 		fprintf(stdout, "output: cnt %d, batchsize %d\n", cnt++, batchsize);
@@ -174,7 +151,7 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "read %s err!\n", n_V);
                         exit(0);
 		}
-		get_hid[hid_type_num](&sm, NULL, V, H, batchsize, numsample, reserved);
+		get_hid(&sm, NULL, V, H, batchsize, numsample, reserved);
 		if (n_clssfy[0] != '\0') {
 		//	fprintf(stdout, "pred start\n");
 			clssfy.data = H;
@@ -186,7 +163,10 @@ int main(int argc, char *argv[])
                         	exit(0);
 			}
 		//	pr_array(stdout, clssfy.labels, 1, 20, 'i');
-			classify_get_hid(&sm, &ip, V, H, batchsize, &clssfy);
+			if (sm.type)
+				classify_get_hid(&sm, &ip, V, H, batchsize, &clssfy);
+			else
+				classify_rsm_hid(&sm, &ip, V, H, batchsize, &clssfy);
 		}
                 if (fwrite(H, sizeof(double), batchsize * sm.numhid, fout) != batchsize * sm.numhid) {
                         fprintf(stderr, "write %s err!\n", out);

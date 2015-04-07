@@ -47,25 +47,19 @@ static void _char_replace(char *str, char before, char after)
 			*p = after;
 }
 
-#define MAX_HID_TYPE	16
-#define NUM_HID_TYPE	2
-
 int main(int argc, char *argv[])
 {
 	sm_info_t sm;
 	char out[MAX_BUF];
 	char n_V[MAX_BUF], hid_name[MAX_BUF];
-	int numcase;
-	int numsample;
+	int numcase, numsample;
+	int thr_num;
 	int iteration, batchsize, mininumcase;
-	char hid_type_name[MAX_HID_TYPE][MAX_BUF] = {"rand", "sa", "nag", "classify"};
-	fun_get_hid get_hid[MAX_HID_TYPE] = {sm_hid_random, sm_hid_sa};//, sm_hid_nag, classify_get_hid};
-	int hid_type_num = 0;
+	fun_get_hid get_hid;
 	double learnrate;
 
 	char ch;
 	while((ch = getopt(argc, argv, "d:m:t:o:f:")) != -1) {
-		int i;
 		switch(ch) {
 		case 'd':
 			_char_replace(optarg, ',', ' ');
@@ -74,22 +68,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			_char_replace(optarg, ',', ' ');
-			sscanf(optarg, "%d %s", &numsample, hid_name);
-			printf("[f]%s:%d,%s[%ld]\n", optarg, numsample, hid_name, strlen(hid_name));
-			for (i = 0; i < NUM_HID_TYPE; i++) {
-				if (strncmp(hid_type_name[i], hid_name, MAX_BUF) == 0)
-					break;
-			}
-			hid_type_num = i;
-			if (hid_type_num >= NUM_HID_TYPE) {
-				fprintf(stderr, "for parameter f, you have following choices:\n\t|");
-				for (i = 0; i < NUM_HID_TYPE; i++) {
-					fprintf(stderr, "%s|", hid_type_name[i]);
-				}
-				fprintf(stderr, "\nbut your parameter is %s\n", hid_name);
-				fprintf(stderr, "notice that, the default parameter is %s\n", hid_type_name[0]);
-				exit(0);
-			}
+			sscanf(optarg, "%d %d %s", &numsample, &thr_num, hid_name);
+			printf("[f]%s:%dx%d,%s[%ld]\n", optarg, numsample, thr_num, hid_name, strlen(hid_name));
 			break;
 		case 't':
 			_char_replace(optarg, ',', ' ');
@@ -112,6 +92,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	get_hid = choose_hid(hid_name, sm.type);
+	if (get_hid == NULL)
+		exit(0);
 	double *H = (double*) malloc(mininumcase * sm.numhid * sizeof(double));
 	int *V = (int*) malloc((size_t)numcase * sm.numvis * sizeof(int));
 	int *order = malloc(sizeof(int) * numcase);
@@ -124,10 +107,11 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "numcase:%d\niteration:%d\n"
 			"mininumcase:%d\nhid_type:%s\n"
 			"batchsize:%d\nlearnrate:%lf\n",
-			numcase, iteration, mininumcase, hid_type_name[hid_type_num], batchsize, learnrate);
+			numcase, iteration, mininumcase, hid_name, batchsize, learnrate);
 
 	get_data(n_V, V, (size_t)numcase * sm.numvis * sizeof(int));
-
+	// notice: when get_hid == sm_hid_sa_thr, reserved = &thr_num
+	*(int*)bh = thr_num;
 	int totalbatch = numcase / mininumcase;
 	int iter, curbatch = 0;
 	open_random();
@@ -141,7 +125,7 @@ int main(int argc, char *argv[])
 		int *V_batch = V + curbatch * mininumcase * sm.numvis;
 		fprintf(stdout, "**** iter %d, loc %ld, current data pointer %p ****\n", iter, (size_t)curbatch * mininumcase * sm.numvis, V_batch);
 
-		get_hid[hid_type_num](&sm, NULL, V_batch, H, mininumcase, numsample, bh);
+		get_hid(&sm, NULL, V_batch, H, mininumcase, numsample, bh);
 		int xx, yy;
 		for (xx = 0; xx < 2; xx++) {
 			for (yy=0; yy < sm.numhid; yy++)

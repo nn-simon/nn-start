@@ -24,10 +24,14 @@ typedef struct {
 void init_hid_nag_ip_struct(hid_nag_ip_t *ip, int num_var, int num_cons);
 void free_hid_nag_ip_struct(hid_nag_ip_t *ip);
 void classify_get_hid(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, void *reserved);
+void classify_rsm_hid(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, void *reserved);
+void rsm_hid(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
 void sm_hid_nag(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
 void sm_hid_random(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
 void sm_hid_sa(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
 void sm_hid_sa_thr(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
+void rsm_hid_thr(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
 typedef void (*fun_get_hid)(const sm_info_t *sm, hid_nag_ip_t *ip, const int *V, double *H, int numcase, int numsample, void *reserved);
+fun_get_hid choose_hid(char *, int);
 
 #endif 

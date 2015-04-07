@@ -57,8 +57,8 @@ double sm_train(sm_info_t *sm, double learnrate, const int *V, const double *H, 
 
 	for (nb = 0; nb < total_batch; nb++) {
 		cost = 0.0;
-		const double *H_batch = H + nb * batchsize * sm->numhid;
-		const int *V_batch = V + nb * batchsize * sm->numvis;
+		const double *H_batch = H + (long)nb * batchsize * sm->numhid;
+		const int *V_batch = V + (long)nb * batchsize * sm->numvis;
 		for (nv = 0; nv < sm->numvis; nv++) {
 			_get_data_from_H(data, H_batch, sm->v2h[nv], sm->len_v2h[nv], sm->numhid, batchsize);
 			_get_label_from_V(label, V_batch, nv, sm->numvis, batchsize);
