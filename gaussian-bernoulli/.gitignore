@@ -1,0 +1,7 @@
+*.o
+*.swp
+tune
+train
+output
+data2V
+\.*
